@@ -75,20 +75,18 @@ openclaw config set plugins.entries.memory-core-plus.config.autoCapture true
 注册在 `before_prompt_build` hook 上。每次用户发送消息、LLM 处理**之前**触发。
 
 ```mermaid
-flowchart TD
-    A[用户发送 prompt] --> B{prompt 长度 >= minPromptLength?}
-    B -- 否 --> C[跳过回忆]
-    B -- 是 --> D{"trigger == 'memory'?"}
-    D -- 是 --> C
-    D -- 否 --> E[获取记忆搜索管理器]
-    E --> F{管理器可用?}
-    F -- 否 --> C
-    F -- 是 --> G[以 prompt 为查询语句进行向量语义搜索]
-    G --> H{存在 score >= minScore 的结果?}
-    H -- 否 --> C
-    H -- 是 --> I["格式化为 &lt;relevant-memories&gt; XML\n（标记为不可信数据）"]
-    I --> J[通过 prependContext 注入到用户 prompt 前部]
-    J --> K[LLM 看到 prompt + 相关记忆]
+flowchart LR
+    A[用户 Prompt] --> B{长度足够?}
+    B -- 否 --> X[跳过]
+    B -- 是 --> C{记忆触发?}
+    C -- 是 --> X
+    C -- 否 --> D{管理器就绪?}
+    D -- 否 --> X
+    D -- 是 --> E[向量搜索]
+    E --> F{分数达标?}
+    F -- 否 --> X
+    F -- 是 --> G[注入记忆]
+    G --> H[LLM 处理]
 ```
 
 以下情况会跳过回忆：
@@ -101,17 +99,15 @@ flowchart TD
 注册在 `agent_end` hook 上。每次 agent 运行**结束后**触发。
 
 ```mermaid
-flowchart TD
-    A[Agent 运行结束] --> B{"trigger == 'memory' 或\nsessionKey 包含 ':memory-capture:'?"}
-    B -- 是 --> C[跳过捕获]
-    B -- 否 --> D[提取最近的 user + assistant 消息]
-    D --> E[移除回忆标记]
-    E --> F[通过 isCapturableMessage 过滤]
-    F --> G{存在可捕获的消息?}
-    G -- 否 --> C
-    G -- 是 --> H[启动 LLM subagent]
-    H --> I[Subagent 以 bullet point 形式提取持久化事实]
-    I --> J["追加写入 memory/YYYY-MM-DD.md"]
+flowchart LR
+    A[Agent 结束] --> B{记忆会话?}
+    B -- 是 --> X[跳过]
+    B -- 否 --> C[提取消息]
+    C --> D[清理 & 过滤]
+    D --> E{可捕获?}
+    E -- 否 --> X
+    E -- 是 --> F[LLM 提取]
+    F --> G[写入记忆文件]
 ```
 
 捕获 hook 包含多重递归防护：

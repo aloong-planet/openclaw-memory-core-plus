@@ -75,20 +75,18 @@ openclaw config set plugins.entries.memory-core-plus.config.autoCapture true
 Registered on the `before_prompt_build` hook. Triggered every time the user sends a message, **before** the LLM processes it.
 
 ```mermaid
-flowchart TD
-    A[User sends prompt] --> B{Prompt length >= minPromptLength?}
-    B -- No --> C[Skip recall]
-    B -- Yes --> D{"trigger == 'memory'?"}
-    D -- Yes --> C
-    D -- No --> E[Get memory search manager]
-    E --> F{Manager available?}
-    F -- No --> C
-    F -- Yes --> G[Semantic vector search with prompt as query]
-    G --> H{Results with score >= minScore?}
-    H -- No --> C
-    H -- Yes --> I["Format as &lt;relevant-memories&gt; XML\n(marked as untrusted data)"]
-    I --> J[Prepend to user prompt via prependContext]
-    J --> K[LLM sees prompt + relevant memories]
+flowchart LR
+    A[Prompt] --> B{Length OK?}
+    B -- No --> X[Skip]
+    B -- Yes --> C{Memory trigger?}
+    C -- Yes --> X
+    C -- No --> D{Manager ready?}
+    D -- No --> X
+    D -- Yes --> E[Vector search]
+    E --> F{Score >= min?}
+    F -- No --> X
+    F -- Yes --> G[Inject memories]
+    G --> H[LLM processes]
 ```
 
 The recall hook skips execution when:
@@ -101,17 +99,15 @@ The recall hook skips execution when:
 Registered on the `agent_end` hook. Triggered every time an agent run **completes**.
 
 ```mermaid
-flowchart TD
-    A[Agent run completes] --> B{"trigger == 'memory' OR\nsessionKey contains ':memory-capture:'?"}
-    B -- Yes --> C[Skip capture]
-    B -- No --> D[Extract recent user + assistant messages]
-    D --> E[Strip recall markers from text]
-    E --> F[Filter via isCapturableMessage]
-    F --> G{Any capturable messages?}
-    G -- No --> C
-    G -- Yes --> H[Spawn LLM subagent]
-    H --> I[Subagent extracts durable facts as bullet points]
-    I --> J["Append to memory/YYYY-MM-DD.md"]
+flowchart LR
+    A[Agent ends] --> B{Memory session?}
+    B -- Yes --> X[Skip]
+    B -- No --> C[Get messages]
+    C --> D[Strip & filter]
+    D --> E{Capturable?}
+    E -- No --> X
+    E -- Yes --> F[LLM extract]
+    F --> G[Write to memory file]
 ```
 
 The capture hook includes multiple recursion guards:
