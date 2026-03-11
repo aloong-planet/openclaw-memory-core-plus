@@ -19,7 +19,7 @@
       },
       "autoRecallMinScore": {
         "type": "number",
-        "default": 0.3,
+        "default": 0.7,
         "description": "Minimum relevance score threshold for recalled memories (0-1)"
       },
       "autoCapture": {

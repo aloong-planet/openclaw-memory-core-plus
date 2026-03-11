@@ -40,7 +40,7 @@ openclaw plugins install openclaw-memory-core-plus
 |------|------|--------|------|
 | `autoRecall` | `boolean` | `false` | 启用自动回忆（每次 agent 处理前自动搜索相关记忆） |
 | `autoRecallMaxResults` | `number` | `5` | 每次注入的最大记忆条数 |
-| `autoRecallMinScore` | `number` | `0.3` | 最低相关性分数阈值（0 -- 1） |
+| `autoRecallMinScore` | `number` | `0.7` | 最低相关性分数阈值（0 -- 1） |
 | `autoRecallMinPromptLength` | `number` | `5` | 触发回忆的最短 prompt 长度（字符数） |
 | `autoCapture` | `boolean` | `false` | 启用自动捕获（每次 agent 运行结束后自动提取记忆） |
 | `autoCaptureMaxMessages` | `number` | `10` | 分析捕获的最大近期消息数 |

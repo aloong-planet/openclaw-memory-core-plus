@@ -21,7 +21,7 @@ describe("config", () => {
     expect(cfg).toEqual({
       autoRecall: false,
       autoRecallMaxResults: 5,
-      autoRecallMinScore: 0.3,
+      autoRecallMinScore: 0.7,
       autoRecallMinPromptLength: 5,
       autoCapture: false,
       autoCaptureMaxMessages: 10,
@@ -50,7 +50,7 @@ describe("config", () => {
       autoCaptureMaxMessages: "bad",
     });
     expect(cfg.autoRecallMaxResults).toBe(5);
-    expect(cfg.autoRecallMinScore).toBe(0.3);
+    expect(cfg.autoRecallMinScore).toBe(0.7);
     expect(cfg.autoCaptureMaxMessages).toBe(10);
   });
 

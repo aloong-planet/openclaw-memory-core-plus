@@ -10,7 +10,7 @@ export type MemoryCorePlusConfig = {
 const DEFAULT_CONFIG: MemoryCorePlusConfig = {
   autoRecall: false,
   autoRecallMaxResults: 5,
-  autoRecallMinScore: 0.3,
+  autoRecallMinScore: 0.7,
   autoRecallMinPromptLength: 5,
   autoCapture: false,
   autoCaptureMaxMessages: 10,

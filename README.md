@@ -40,7 +40,7 @@ Add plugin configuration to your `openclaw.json`:
 |-----|------|---------|-------------|
 | `autoRecall` | `boolean` | `false` | Enable automatic memory recall before each agent turn |
 | `autoRecallMaxResults` | `number` | `5` | Maximum number of memories to inject per turn |
-| `autoRecallMinScore` | `number` | `0.3` | Minimum relevance score threshold (0 -- 1) |
+| `autoRecallMinScore` | `number` | `0.7` | Minimum relevance score threshold (0 -- 1) |
 | `autoRecallMinPromptLength` | `number` | `5` | Minimum prompt length (chars) to trigger recall |
 | `autoCapture` | `boolean` | `false` | Enable automatic memory capture after each agent run |
 | `autoCaptureMaxMessages` | `number` | `10` | Maximum recent messages to analyze for capture |
