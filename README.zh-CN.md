@@ -21,18 +21,41 @@ openclaw plugins install openclaw-memory-core-plus
 
 ## 配置
 
-在 `openclaw.json` 中添加插件配置：
+### 快速设置（命令行）
+
+```bash
+# 启用插件并自动选择 memory slot
+openclaw plugins enable memory-core-plus
+
+# 启用自动回忆
+openclaw config set plugins.entries.memory-core-plus.config.autoRecall true
+
+# 启用自动捕获
+openclaw config set plugins.entries.memory-core-plus.config.autoCapture true
+```
+
+### 完整配置（openclaw.json）
 
 ```jsonc
 {
   "plugins": {
-    "memory-core-plus": {
-      "autoRecall": true,
-      "autoCapture": true
+    "entries": {
+      "memory-core-plus": {
+        "enabled": true,
+        "config": {
+          "autoRecall": true,
+          "autoCapture": true
+        }
+      }
+    },
+    "slots": {
+      "memory": "memory-core-plus"
     }
   }
 }
 ```
+
+> **重要：** `plugins.slots.memory` 必须设置为 `"memory-core-plus"` 才能将本插件激活为记忆提供者。运行 `openclaw plugins enable memory-core-plus` 会自动完成此设置。请勿同时启用 `memory-core`，否则会注册重复的工具。
 
 ### 配置参数
 
@@ -51,30 +74,21 @@ openclaw plugins install openclaw-memory-core-plus
 
 注册在 `before_prompt_build` hook 上。每次用户发送消息、LLM 处理**之前**触发。
 
-```
-用户 prompt
-    |
-    v
-[before_prompt_build hook 触发]
-    |
-    v
-将 prompt 作为搜索查询语句
-    |
-    v
-对工作区 memory 文件进行向量语义搜索
-    |
-    v
-按 minScore 阈值过滤结果
-    |
-    v
-将匹配的记忆格式化为 <relevant-memories> XML
-（标记为 untrusted data 以防止 prompt injection）
-    |
-    v
-通过 hook 的 prependContext 字段注入到用户 prompt 前部
-    |
-    v
-LLM 看到用户问题 + 相关历史上下文
+```mermaid
+flowchart TD
+    A[用户发送 prompt] --> B{prompt 长度 >= minPromptLength?}
+    B -- 否 --> C[跳过回忆]
+    B -- 是 --> D{"trigger == 'memory'?"}
+    D -- 是 --> C
+    D -- 否 --> E[获取记忆搜索管理器]
+    E --> F{管理器可用?}
+    F -- 否 --> C
+    F -- 是 --> G[以 prompt 为查询语句进行向量语义搜索]
+    G --> H{存在 score >= minScore 的结果?}
+    H -- 否 --> C
+    H -- 是 --> I["格式化为 &lt;relevant-memories&gt; XML\n（标记为不可信数据）"]
+    I --> J[通过 prependContext 注入到用户 prompt 前部]
+    J --> K[LLM 看到 prompt + 相关记忆]
 ```
 
 以下情况会跳过回忆：
@@ -86,32 +100,18 @@ LLM 看到用户问题 + 相关历史上下文
 
 注册在 `agent_end` hook 上。每次 agent 运行**结束后**触发。
 
-```
-Agent 运行结束
-    |
-    v
-[agent_end hook 触发]
-    |
-    v
-检查守卫条件：trigger="memory" 或
-sessionKey 包含 ":memory-capture:" 则跳过
-    |
-    v
-提取最近的 user + assistant 消息（最多 autoCaptureMaxMessages 条）
-    |
-    v
-过滤：移除回忆标记，通过 isCapturableMessage() 检查
-（过滤掉：过短文本、代码块、HTML/XML、标题、
- 疑似 prompt injection、过多 emoji）
-    |
-    v
-如果存在可捕获内容，启动 LLM subagent
-    |
-    v
-Subagent 以 bullet point 形式提取持久化事实
-    |
-    v
-追加写入 memory/YYYY-MM-DD.md
+```mermaid
+flowchart TD
+    A[Agent 运行结束] --> B{"trigger == 'memory' 或\nsessionKey 包含 ':memory-capture:'?"}
+    B -- 是 --> C[跳过捕获]
+    B -- 否 --> D[提取最近的 user + assistant 消息]
+    D --> E[移除回忆标记]
+    E --> F[通过 isCapturableMessage 过滤]
+    F --> G{存在可捕获的消息?}
+    G -- 否 --> C
+    G -- 是 --> H[启动 LLM subagent]
+    H --> I[Subagent 以 bullet point 形式提取持久化事实]
+    I --> J["追加写入 memory/YYYY-MM-DD.md"]
 ```
 
 捕获 hook 包含多重递归防护：
@@ -130,8 +130,6 @@ Subagent 以 bullet point 形式提取持久化事实
 ## 与 memory-core 的关系
 
 本插件是内置 `memory-core` 插件的**超集**。它继承并重新注册了相同的 `memory_search` 和 `memory_get` 工具，以及 `memory` CLI 命令。在此基础上增加了 auto-recall 和 auto-capture hook。
-
-当 `memory-core-plus` 启用时，**不要**同时启用 `memory-core`，否则会注册重复的工具。
 
 ## 许可证
 

@@ -21,18 +21,41 @@ openclaw plugins install openclaw-memory-core-plus
 
 ## Configuration
 
-Add plugin configuration to your `openclaw.json`:
+### Quick Setup (CLI)
+
+```bash
+# Enable the plugin and auto-select memory slot
+openclaw plugins enable memory-core-plus
+
+# Enable auto-recall
+openclaw config set plugins.entries.memory-core-plus.config.autoRecall true
+
+# Enable auto-capture
+openclaw config set plugins.entries.memory-core-plus.config.autoCapture true
+```
+
+### Full Configuration (openclaw.json)
 
 ```jsonc
 {
   "plugins": {
-    "memory-core-plus": {
-      "autoRecall": true,
-      "autoCapture": true
+    "entries": {
+      "memory-core-plus": {
+        "enabled": true,
+        "config": {
+          "autoRecall": true,
+          "autoCapture": true
+        }
+      }
+    },
+    "slots": {
+      "memory": "memory-core-plus"
     }
   }
 }
 ```
+
+> **Important:** The `plugins.slots.memory` field must be set to `"memory-core-plus"` to activate this plugin as the memory provider. Running `openclaw plugins enable memory-core-plus` handles this automatically. Do not enable `memory-core` at the same time -- they would register duplicate tools.
 
 ### Configuration Reference
 
@@ -51,30 +74,21 @@ Add plugin configuration to your `openclaw.json`:
 
 Registered on the `before_prompt_build` hook. Triggered every time the user sends a message, **before** the LLM processes it.
 
-```
-User prompt
-    |
-    v
-[before_prompt_build hook fires]
-    |
-    v
-Use prompt as search query
-    |
-    v
-Semantic vector search across workspace memory files
-    |
-    v
-Filter results by minScore threshold
-    |
-    v
-Format matching memories as <relevant-memories> XML
-(marked as untrusted data to prevent prompt injection)
-    |
-    v
-Prepend to user prompt via hook's prependContext
-    |
-    v
-LLM sees user question + relevant historical context
+```mermaid
+flowchart TD
+    A[User sends prompt] --> B{Prompt length >= minPromptLength?}
+    B -- No --> C[Skip recall]
+    B -- Yes --> D{"trigger == 'memory'?"}
+    D -- Yes --> C
+    D -- No --> E[Get memory search manager]
+    E --> F{Manager available?}
+    F -- No --> C
+    F -- Yes --> G[Semantic vector search with prompt as query]
+    G --> H{Results with score >= minScore?}
+    H -- No --> C
+    H -- Yes --> I["Format as &lt;relevant-memories&gt; XML\n(marked as untrusted data)"]
+    I --> J[Prepend to user prompt via prependContext]
+    J --> K[LLM sees prompt + relevant memories]
 ```
 
 The recall hook skips execution when:
@@ -86,32 +100,18 @@ The recall hook skips execution when:
 
 Registered on the `agent_end` hook. Triggered every time an agent run **completes**.
 
-```
-Agent run completes
-    |
-    v
-[agent_end hook fires]
-    |
-    v
-Check guards: skip if trigger="memory"
-or sessionKey contains ":memory-capture:"
-    |
-    v
-Extract recent user + assistant messages (up to autoCaptureMaxMessages)
-    |
-    v
-Filter: strip recall markers, check isCapturableMessage()
-(rejects: short text, code blocks, HTML/XML, headings,
- prompt injections, excessive emojis)
-    |
-    v
-If capturable content exists, spawn LLM subagent
-    |
-    v
-Subagent extracts durable facts as bullet points
-    |
-    v
-Append to memory/YYYY-MM-DD.md
+```mermaid
+flowchart TD
+    A[Agent run completes] --> B{"trigger == 'memory' OR\nsessionKey contains ':memory-capture:'?"}
+    B -- Yes --> C[Skip capture]
+    B -- No --> D[Extract recent user + assistant messages]
+    D --> E[Strip recall markers from text]
+    E --> F[Filter via isCapturableMessage]
+    F --> G{Any capturable messages?}
+    G -- No --> C
+    G -- Yes --> H[Spawn LLM subagent]
+    H --> I[Subagent extracts durable facts as bullet points]
+    I --> J["Append to memory/YYYY-MM-DD.md"]
 ```
 
 The capture hook includes multiple recursion guards:
@@ -130,8 +130,6 @@ The capture hook includes multiple recursion guards:
 ## Relationship to memory-core
 
 This plugin is a **superset** of the built-in `memory-core` plugin. It inherits and re-registers the same `memory_search` and `memory_get` tools, as well as the `memory` CLI command. On top of that, it adds the auto-recall and auto-capture hooks.
-
-When `memory-core-plus` is active, do **not** enable `memory-core` simultaneously -- they would register duplicate tools.
 
 ## License
 
