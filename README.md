@@ -89,6 +89,16 @@ flowchart LR
     G --> H[LLM processes]
 ```
 
+**Processing steps:**
+
+1. When the user sends a prompt, the hook first checks whether the prompt length meets the `autoRecallMinPromptLength` threshold. Very short inputs (e.g. "hi") are skipped.
+2. If the current trigger is `"memory"`, the hook exits to avoid recall during memory-related subagent runs.
+3. The hook obtains the memory search manager. If no manager is available (e.g. embeddings are not configured), the hook exits.
+4. The prompt is used as a query for semantic vector search across all workspace memory files.
+5. Results are filtered by the `autoRecallMinScore` threshold. Only memories with a relevance score above this value are kept.
+6. Matching memories are formatted as `<relevant-memories>` XML (marked as untrusted data to prevent prompt injection) and prepended to the user prompt via the hook's `prependContext` field.
+7. The LLM then sees the original user question together with relevant historical context.
+
 The recall hook skips execution when:
 - The prompt is shorter than `autoRecallMinPromptLength`
 - The trigger is `"memory"` (avoids recall during memory-related subagent runs)
@@ -109,6 +119,15 @@ flowchart LR
     E -- Yes --> F[LLM extract]
     F --> G[Write to memory file]
 ```
+
+**Processing steps:**
+
+1. When an agent run completes, the hook checks recursion guards: if `ctx.trigger === "memory"` or `ctx.sessionKey` contains `:memory-capture:`, capture is skipped to prevent infinite loops.
+2. The most recent user and assistant messages are extracted (up to `autoCaptureMaxMessages`).
+3. Any `<relevant-memories>` blocks injected by the recall hook are stripped from the text, so previously recalled content is not re-persisted as new memory.
+4. Each message is checked via `isCapturableMessage()`, which filters out: text that is too short or too long, code blocks, HTML/XML markup, headings, suspected prompt injections, and messages with excessive emojis.
+5. If capturable content exists, an LLM subagent is spawned to extract durable facts, preferences, and decisions as bullet points.
+6. The extracted facts are appended to `memory/YYYY-MM-DD.md`. An `idempotencyKey` prevents duplicate captures within the same run.
 
 The capture hook includes multiple recursion guards:
 - Checks `ctx.trigger === "memory"` to skip memory-triggered runs

@@ -89,6 +89,16 @@ flowchart LR
     G --> H[LLM 处理]
 ```
 
+**处理步骤：**
+
+1. 用户发送 prompt 后，hook 首先检查 prompt 长度是否达到 `autoRecallMinPromptLength` 阈值。过短的输入（如 "hi"）会被跳过。
+2. 如果当前 trigger 为 `"memory"`，hook 退出，避免在记忆相关的 subagent 运行中触发回忆。
+3. hook 获取记忆搜索管理器。如果管理器不可用（例如未配置 embeddings），则退出。
+4. 将用户 prompt 作为查询语句，对工作区所有记忆文件进行向量语义搜索。
+5. 按 `autoRecallMinScore` 阈值过滤结果，仅保留相关性分数高于阈值的记忆。
+6. 匹配的记忆被格式化为 `<relevant-memories>` XML（标记为不可信数据以防止 prompt injection），通过 hook 的 `prependContext` 字段注入到用户 prompt 前部。
+7. LLM 最终看到原始用户问题和相关的历史上下文。
+
 以下情况会跳过回忆：
 - prompt 长度短于 `autoRecallMinPromptLength`
 - trigger 为 `"memory"`（避免在记忆相关的 subagent 运行中触发回忆）
@@ -109,6 +119,15 @@ flowchart LR
     E -- 是 --> F[LLM 提取]
     F --> G[写入记忆文件]
 ```
+
+**处理步骤：**
+
+1. 当 agent 运行结束后，hook 检查递归防护：如果 `ctx.trigger === "memory"` 或 `ctx.sessionKey` 包含 `:memory-capture:`，则跳过捕获以防止无限循环。
+2. 提取最近的 user 和 assistant 消息（最多 `autoCaptureMaxMessages` 条）。
+3. 移除文本中由 recall hook 注入的所有 `<relevant-memories>` 块，避免将之前回忆的内容重新持久化为新记忆。
+4. 通过 `isCapturableMessage()` 检查每条消息，过滤掉：过短或过长的文本、代码块、HTML/XML 标记、标题、疑似 prompt injection、以及包含过多 emoji 的消息。
+5. 如果存在可捕获的内容，启动 LLM subagent 以 bullet point 形式提取持久化的事实、偏好和决策。
+6. 提取的事实追加写入 `memory/YYYY-MM-DD.md`。通过 `idempotencyKey` 防止同一次运行中的重复捕获。
 
 捕获 hook 包含多重递归防护：
 - 检查 `ctx.trigger === "memory"` 跳过记忆触发的运行
