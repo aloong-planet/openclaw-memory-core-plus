@@ -1,0 +1,41 @@
+{
+  "name": "openclaw-memory-core-plus",
+  "version": "0.1.0",
+  "description": "Enhanced workspace memory with auto-recall and auto-capture for OpenClaw",
+  "type": "module",
+  "openclaw": {
+    "extensions": [
+      "./index.ts"
+    ]
+  },
+  "files": [
+    "index.ts",
+    "config.ts",
+    "recall.ts",
+    "capture.ts",
+    "safety.ts",
+    "openclaw.plugin.json",
+    "README.md",
+    "README.zh-CN.md"
+  ],
+  "peerDependencies": {
+    "openclaw": ">=2026.3.2"
+  },
+  "peerDependenciesMeta": {
+    "openclaw": {
+      "optional": true
+    }
+  },
+  "keywords": [
+    "openclaw",
+    "plugin",
+    "memory",
+    "auto-recall",
+    "auto-capture"
+  ],
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/aloong-planet/openclaw-memory-core-plus"
+  }
+}
