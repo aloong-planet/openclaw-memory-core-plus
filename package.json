@@ -33,9 +33,14 @@
     "auto-recall",
     "auto-capture"
   ],
+  "author": "aloong",
   "license": "MIT",
+  "homepage": "https://github.com/aloong-planet/openclaw-memory-core-plus#readme",
   "repository": {
     "type": "git",
-    "url": "https://github.com/aloong-planet/openclaw-memory-core-plus"
+    "url": "git+https://github.com/aloong-planet/openclaw-memory-core-plus.git"
+  },
+  "bugs": {
+    "url": "https://github.com/aloong-planet/openclaw-memory-core-plus/issues"
   }
 }
