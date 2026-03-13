@@ -31,7 +31,12 @@
     "plugin",
     "memory",
     "auto-recall",
-    "auto-capture"
+    "auto-capture",
+    "llm",
+    "ai-agent",
+    "rag",
+    "ai-gateway",
+    "typescript"
   ],
   "author": "aloong",
   "license": "MIT",
