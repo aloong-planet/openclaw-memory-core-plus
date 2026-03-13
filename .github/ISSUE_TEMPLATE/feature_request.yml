@@ -1,0 +1,39 @@
+name: Feature Request
+description: Suggest a new feature or enhancement for openclaw-memory-core-plus
+labels: ["enhancement"]
+body:
+  - type: textarea
+    id: summary
+    attributes:
+      label: Summary
+      description: A brief description of the feature you'd like to see.
+    validations:
+      required: true
+
+  - type: textarea
+    id: problem
+    attributes:
+      label: Problem / Motivation
+      description: What problem does this solve? Why is it needed?
+    validations:
+      required: true
+
+  - type: textarea
+    id: solution
+    attributes:
+      label: Proposed Solution
+      description: Describe how you'd like the feature to work.
+    validations:
+      required: true
+
+  - type: textarea
+    id: alternatives
+    attributes:
+      label: Alternatives Considered
+      description: Other approaches you've thought about.
+
+  - type: textarea
+    id: impact
+    attributes:
+      label: Impact
+      description: Who benefits from this, and how?
