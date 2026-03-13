@@ -5,6 +5,18 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.1.1] - 2026-03-13
+
+### Changed
+
+- Improved npm discoverability: added keywords `llm`, `ai-agent`, `rag`, `ai-gateway`, `typescript`.
+- Added GitHub repository topics for better search visibility.
+
+### Docs
+
+- Enhanced README with Mermaid flowcharts, processing steps explanation, slots config, and CLI commands.
+- Changed `autoRecallMinScore` default from `0.3` to `0.7` in docs examples.
+
 ## [0.1.0] - 2026-03-13
 
 ### Added
