@@ -41,24 +41,9 @@ export function createRecallHook(api: OpenClawPluginApi, cfg: MemoryCorePlusConf
     }
 
     try {
-      // Probe whether an embedding provider is available.
-      // In FTS-only mode (no embedding model configured), BM25 scores top out
-      // around 0.3–0.5, so applying the semantic minScore (default 0.7) would
-      // filter every result. Instead, omit minScore and let the manager apply
-      // its own DEFAULT_MIN_SCORE (0.35) — the same behaviour as openclaw's
-      // built-in memory tool.
-      const probe = await manager.probeEmbeddingAvailability();
-      const isFtsOnly = !probe.ok;
-      if (isFtsOnly) {
-        api.logger.warn(
-          `memory-core-plus: no embedding model configured, recall running in FTS-only mode (autoRecallMinScore ignored)`,
-        );
-      }
-
       const results = await manager.search(event.prompt, {
         maxResults: cfg.autoRecallMaxResults,
         sessionKey: ctx.sessionKey,
-        ...(isFtsOnly ? {} : { minScore: cfg.autoRecallMinScore }),
       });
 
       if (results.length === 0) {

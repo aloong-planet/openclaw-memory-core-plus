@@ -25,10 +25,11 @@ openclaw plugins install openclaw-memory-core-plus
 
 ```bash
 # Enable the plugin and auto-select memory slot
+# Auto-recall is enabled by default — no extra config needed
 openclaw plugins enable memory-core-plus
 
-# Enable auto-recall
-openclaw config set plugins.entries.memory-core-plus.config.autoRecall true
+# Disable auto-recall (if needed)
+openclaw config set plugins.entries.memory-core-plus.config.autoRecall false
 
 # Enable auto-capture
 openclaw config set plugins.entries.memory-core-plus.config.autoCapture true
@@ -61,9 +62,8 @@ openclaw config set plugins.entries.memory-core-plus.config.autoCapture true
 
 | Key | Type | Default | Description |
 |-----|------|---------|-------------|
-| `autoRecall` | `boolean` | `false` | Enable automatic memory recall before each agent turn |
+| `autoRecall` | `boolean` | `true` | Enable automatic memory recall before each agent turn |
 | `autoRecallMaxResults` | `number` | `5` | Maximum number of memories to inject per turn |
-| `autoRecallMinScore` | `number` | `0.7` | Minimum relevance score threshold (0 -- 1) |
 | `autoRecallMinPromptLength` | `number` | `5` | Minimum prompt length (chars) to trigger recall |
 | `autoCapture` | `boolean` | `false` | Enable automatic memory capture after each agent run |
 | `autoCaptureMaxMessages` | `number` | `10` | Maximum recent messages to analyze for capture |
@@ -83,9 +83,9 @@ flowchart LR
     C -- No --> D{Manager ready?}
     D -- No --> X
     D -- Yes --> E[Vector search]
-    E --> F{Score >= min?}
-    F -- No --> X
-    F -- Yes --> G[Inject memories]
+    E --> F{Results?}
+    F -- None --> X
+    F -- Found --> G[Inject memories]
     G --> H[LLM processes]
 ```
 
@@ -95,9 +95,8 @@ flowchart LR
 2. If the current trigger is `"memory"`, the hook exits to avoid recall during memory-related subagent runs.
 3. The hook obtains the memory search manager. If no manager is available (e.g. embeddings are not configured), the hook exits.
 4. The prompt is used as a query for semantic vector search across all workspace memory files.
-5. Results are filtered by the `autoRecallMinScore` threshold. Only memories with a relevance score above this value are kept.
-6. Matching memories are formatted as `<relevant-memories>` XML (marked as untrusted data to prevent prompt injection) and prepended to the user prompt via the hook's `prependContext` field.
-7. The LLM then sees the original user question together with relevant historical context.
+5. If the search returns results, they are formatted as `<relevant-memories>` XML (marked as untrusted data to prevent prompt injection) and prepended to the user prompt via the hook's `prependContext` field.
+6. The LLM then sees the original user question together with relevant historical context.
 
 The recall hook skips execution when:
 - The prompt is shorter than `autoRecallMinPromptLength`

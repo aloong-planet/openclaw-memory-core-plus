@@ -19,9 +19,8 @@ describe("config", () => {
   it("returns defaults when no config provided", () => {
     const cfg = parseConfig(undefined);
     expect(cfg).toEqual({
-      autoRecall: false,
+      autoRecall: true,
       autoRecallMaxResults: 5,
-      autoRecallMinScore: 0.7,
       autoRecallMinPromptLength: 5,
       autoCapture: false,
       autoCaptureMaxMessages: 10,
@@ -32,13 +31,11 @@ describe("config", () => {
     const cfg = parseConfig({
       autoRecall: true,
       autoRecallMaxResults: 10,
-      autoRecallMinScore: 0.5,
       autoCapture: true,
       autoCaptureMaxMessages: 20,
     });
     expect(cfg.autoRecall).toBe(true);
     expect(cfg.autoRecallMaxResults).toBe(10);
-    expect(cfg.autoRecallMinScore).toBe(0.5);
     expect(cfg.autoCapture).toBe(true);
     expect(cfg.autoCaptureMaxMessages).toBe(20);
   });
@@ -46,24 +43,22 @@ describe("config", () => {
   it("falls back to defaults for invalid numeric values", () => {
     const cfg = parseConfig({
       autoRecallMaxResults: -1,
-      autoRecallMinScore: 2,
       autoCaptureMaxMessages: "bad",
     });
     expect(cfg.autoRecallMaxResults).toBe(5);
-    expect(cfg.autoRecallMinScore).toBe(0.7);
     expect(cfg.autoCaptureMaxMessages).toBe(10);
   });
 
-  it("treats non-boolean autoRecall as false", () => {
+  it("treats non-boolean autoRecall as true (default)", () => {
     const cfg = parseConfig({ autoRecall: "yes" });
-    expect(cfg.autoRecall).toBe(false);
+    expect(cfg.autoRecall).toBe(true);
   });
 });
 
 describe("memoryCoreConfigSchema", () => {
   it("parse returns defaults for null", () => {
     const result = memoryCoreConfigSchema.parse(null);
-    expect(result.autoRecall).toBe(false);
+    expect(result.autoRecall).toBe(true);
   });
 
   it("parse throws for array input", () => {
@@ -293,15 +288,12 @@ describe("extractMessagesOfRole", () => {
 // ─── Recall Hook ──────────────────────────────────────────────────
 
 describe("createRecallHook", () => {
-  function createMockApi(managerOverrides: Record<string, unknown> = {}, ftsOnly = false) {
+  function createMockApi(managerOverrides: Record<string, unknown> = {}) {
     const searchFn = vi
       .fn()
       .mockResolvedValue([
         { path: "memory/2024.md", snippet: "User likes dark mode", score: 0.85 },
       ]);
-    const probeFn = vi.fn().mockResolvedValue(
-      ftsOnly ? { ok: false, error: "No embedding provider available (FTS-only mode)" } : { ok: true },
-    );
     return {
       api: {
         config: {},
@@ -309,7 +301,7 @@ describe("createRecallHook", () => {
         runtime: {
           tools: {
             getMemorySearchManager: vi.fn().mockResolvedValue({
-              manager: { search: searchFn, probeEmbeddingAvailability: probeFn, ...managerOverrides },
+              manager: { search: searchFn, ...managerOverrides },
               error: undefined,
             }),
           },
@@ -317,7 +309,6 @@ describe("createRecallHook", () => {
         logger: { info: vi.fn(), warn: vi.fn(), error: vi.fn(), debug: vi.fn() },
       } as any,
       searchFn,
-      probeFn,
     };
   }
 
@@ -387,7 +378,7 @@ describe("createRecallHook", () => {
   it("skips when search returns empty results", async () => {
     const { api } = createMockApi();
     (api.runtime.tools.getMemorySearchManager as ReturnType<typeof vi.fn>).mockResolvedValue({
-      manager: { search: vi.fn().mockResolvedValue([]), probeEmbeddingAvailability: vi.fn().mockResolvedValue({ ok: true }) },
+      manager: { search: vi.fn().mockResolvedValue([]) },
     });
     const hook = createRecallHook(api, defaultCfg);
     const result = await hook({ prompt: "What is my name?", messages: [] }, { agentId: "main" });
@@ -414,7 +405,7 @@ describe("createRecallHook", () => {
   it("handles search throwing", async () => {
     const { api } = createMockApi();
     (api.runtime.tools.getMemorySearchManager as ReturnType<typeof vi.fn>).mockResolvedValue({
-      manager: { search: vi.fn().mockRejectedValue(new Error("search error")), probeEmbeddingAvailability: vi.fn().mockResolvedValue({ ok: true }) },
+      manager: { search: vi.fn().mockRejectedValue(new Error("search error")) },
     });
     const hook = createRecallHook(api, defaultCfg);
     const result = await hook({ prompt: "What is my name?", messages: [] }, { agentId: "main" });
@@ -431,41 +422,14 @@ describe("createRecallHook", () => {
     );
   });
 
-  it("passes minScore to search in hybrid mode (embedding available)", async () => {
-    const { api, searchFn } = createMockApi({}, false);
-    const cfg = parseConfig({ autoRecall: true, autoRecallMinScore: 0.7 });
-    const hook = createRecallHook(api, cfg);
+  it("does not pass minScore to manager.search", async () => {
+    const { api, searchFn } = createMockApi();
+    const hook = createRecallHook(api, defaultCfg);
     await hook({ prompt: "How do I set up dark mode?", messages: [] }, { agentId: "main" });
-    expect(searchFn).toHaveBeenCalledWith(
-      expect.any(String),
-      expect.objectContaining({ minScore: 0.7 }),
-    );
-  });
-
-  it("omits minScore in FTS-only mode (no embedding model)", async () => {
-    const { api, searchFn, probeFn } = createMockApi({}, true);
-    const cfg = parseConfig({ autoRecall: true, autoRecallMinScore: 0.7 });
-    const hook = createRecallHook(api, cfg);
-    await hook({ prompt: "How do I set up dark mode?", messages: [] }, { agentId: "main" });
-    expect(probeFn).toHaveBeenCalled();
     expect(searchFn).toHaveBeenCalledWith(
       expect.any(String),
       expect.not.objectContaining({ minScore: expect.anything() }),
     );
-    expect(api.logger.warn).toHaveBeenCalledWith(
-      expect.stringContaining("FTS-only mode"),
-    );
-  });
-
-  it("still returns results in FTS-only mode", async () => {
-    const { api } = createMockApi({}, true);
-    const hook = createRecallHook(api, defaultCfg);
-    const result = await hook(
-      { prompt: "How do I set up dark mode?", messages: [] },
-      { agentId: "main" },
-    );
-    expect(result).toBeDefined();
-    expect(result!.prependContext).toContain("dark mode");
   });
 });
 
@@ -674,11 +638,12 @@ describe("plugin.register", () => {
     } as any;
   }
 
-  it("registers memory tools and CLI", () => {
+  it("registers memory tools, CLI, and auto-recall hook by default", () => {
     const api = createMockApi();
     plugin.register(api);
     expect(api.registerTool).toHaveBeenCalledTimes(1);
     expect(api.registerCli).toHaveBeenCalledTimes(1);
+    expect(api.on).toHaveBeenCalledWith("before_prompt_build", expect.any(Function));
   });
 
   it("registers no hooks when both auto features disabled", () => {
