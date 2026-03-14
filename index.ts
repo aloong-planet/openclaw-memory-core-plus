@@ -4,7 +4,7 @@ import { memoryCoreConfigSchema, parseConfig } from "./config.js";
 import { createRecallHook } from "./recall.js";
 
 const memoryCorePlusPlugin = {
-  id: "memory-core-plus",
+  id: "openclaw-memory-core-plus",
   name: "Memory Core Plus",
   description: "Enhanced workspace memory with auto-recall and auto-capture",
   kind: "memory" as const,
