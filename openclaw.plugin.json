@@ -19,7 +19,7 @@
       },
       "autoCapture": {
         "type": "boolean",
-        "default": false,
+        "default": true,
         "description": "Automatically capture important information from conversations to memory"
       },
       "autoCaptureMaxMessages": {

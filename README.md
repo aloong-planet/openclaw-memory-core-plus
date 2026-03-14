@@ -25,14 +25,14 @@ openclaw plugins install openclaw-memory-core-plus
 
 ```bash
 # Enable the plugin and auto-select memory slot
-# Auto-recall is enabled by default — no extra config needed
+# Auto-recall and auto-capture are both enabled by default — no extra config needed
 openclaw plugins enable memory-core-plus
 
 # Disable auto-recall (if needed)
 openclaw config set plugins.entries.memory-core-plus.config.autoRecall false
 
-# Enable auto-capture
-openclaw config set plugins.entries.memory-core-plus.config.autoCapture true
+# Disable auto-capture (if needed)
+openclaw config set plugins.entries.memory-core-plus.config.autoCapture false
 ```
 
 ### Full Configuration (openclaw.json)
@@ -65,7 +65,7 @@ openclaw config set plugins.entries.memory-core-plus.config.autoCapture true
 | `autoRecall` | `boolean` | `true` | Enable automatic memory recall before each agent turn |
 | `autoRecallMaxResults` | `number` | `5` | Maximum number of memories to inject per turn |
 | `autoRecallMinPromptLength` | `number` | `5` | Minimum prompt length (chars) to trigger recall |
-| `autoCapture` | `boolean` | `false` | Enable automatic memory capture after each agent run |
+| `autoCapture` | `boolean` | `true` | Enable automatic memory capture after each agent run |
 | `autoCaptureMaxMessages` | `number` | `10` | Maximum recent messages to analyze for capture |
 
 ## How It Works

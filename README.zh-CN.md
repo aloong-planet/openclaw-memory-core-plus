@@ -25,14 +25,14 @@ openclaw plugins install openclaw-memory-core-plus
 
 ```bash
 # 启用插件并自动选择 memory slot
-# 自动回忆默认启用，无需额外配置
+# 自动回忆和自动捕获默认启用，无需额外配置
 openclaw plugins enable memory-core-plus
 
 # 关闭自动回忆（如有需要）
 openclaw config set plugins.entries.memory-core-plus.config.autoRecall false
 
-# 启用自动捕获
-openclaw config set plugins.entries.memory-core-plus.config.autoCapture true
+# 关闭自动捕获（如有需要）
+openclaw config set plugins.entries.memory-core-plus.config.autoCapture false
 ```
 
 ### 完整配置（openclaw.json）
@@ -65,7 +65,7 @@ openclaw config set plugins.entries.memory-core-plus.config.autoCapture true
 | `autoRecall` | `boolean` | `true` | 启用自动回忆（每次 agent 处理前自动搜索相关记忆） |
 | `autoRecallMaxResults` | `number` | `5` | 每次注入的最大记忆条数 |
 | `autoRecallMinPromptLength` | `number` | `5` | 触发回忆的最短 prompt 长度（字符数） |
-| `autoCapture` | `boolean` | `false` | 启用自动捕获（每次 agent 运行结束后自动提取记忆） |
+| `autoCapture` | `boolean` | `true` | 启用自动捕获（每次 agent 运行结束后自动提取记忆） |
 | `autoCaptureMaxMessages` | `number` | `10` | 分析捕获的最大近期消息数 |
 
 ## 工作原理

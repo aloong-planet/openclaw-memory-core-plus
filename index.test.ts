@@ -22,7 +22,7 @@ describe("config", () => {
       autoRecall: true,
       autoRecallMaxResults: 5,
       autoRecallMinPromptLength: 5,
-      autoCapture: false,
+      autoCapture: true,
       autoCaptureMaxMessages: 10,
     });
   });
@@ -638,12 +638,14 @@ describe("plugin.register", () => {
     } as any;
   }
 
-  it("registers memory tools, CLI, and auto-recall hook by default", () => {
+  it("registers memory tools, CLI, and both hooks by default", () => {
     const api = createMockApi();
     plugin.register(api);
     expect(api.registerTool).toHaveBeenCalledTimes(1);
     expect(api.registerCli).toHaveBeenCalledTimes(1);
+    expect(api.on).toHaveBeenCalledTimes(2);
     expect(api.on).toHaveBeenCalledWith("before_prompt_build", expect.any(Function));
+    expect(api.on).toHaveBeenCalledWith("agent_end", expect.any(Function));
   });
 
   it("registers no hooks when both auto features disabled", () => {

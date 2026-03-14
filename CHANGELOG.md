@@ -10,6 +10,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Changed
 
 - **Breaking:** `autoRecall` now defaults to `true`. Auto-recall is enabled out of the box when the plugin is activated. To disable, set `autoRecall: false` or run `openclaw config set plugins.entries.memory-core-plus.config.autoRecall false`.
+- **Breaking:** `autoCapture` now defaults to `true`. Auto-capture is enabled out of the box when the plugin is activated. To disable, set `autoCapture: false` or run `openclaw config set plugins.entries.memory-core-plus.config.autoCapture false`.
 
 ### Removed
 

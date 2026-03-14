@@ -10,7 +10,7 @@ const DEFAULT_CONFIG: MemoryCorePlusConfig = {
   autoRecall: true,
   autoRecallMaxResults: 5,
   autoRecallMinPromptLength: 5,
-  autoCapture: false,
+  autoCapture: true,
   autoCaptureMaxMessages: 10,
 };
 
@@ -35,7 +35,7 @@ export function parseConfig(pluginConfig?: Record<string, unknown>): MemoryCoreP
       pluginConfig.autoRecallMinPromptLength,
       DEFAULT_CONFIG.autoRecallMinPromptLength,
     ),
-    autoCapture: pluginConfig.autoCapture === true,
+    autoCapture: pluginConfig.autoCapture !== false,
     autoCaptureMaxMessages: normalizePositiveInt(
       pluginConfig.autoCaptureMaxMessages,
       DEFAULT_CONFIG.autoCaptureMaxMessages,
