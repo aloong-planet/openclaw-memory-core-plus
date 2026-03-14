@@ -83,9 +83,9 @@ flowchart LR
     C -- 否 --> D{管理器就绪?}
     D -- 否 --> X
     D -- 是 --> E[向量搜索]
-    E --> F{有结果?}
-    F -- 无 --> X
-    F -- 有 --> G[注入记忆]
+    E --> F{分数达标?}
+    F -- 否 --> X
+    F -- 是 --> G[注入记忆]
     G --> H[LLM 处理]
 ```
 
@@ -95,8 +95,9 @@ flowchart LR
 2. 如果当前 trigger 为 `"memory"`，hook 退出，避免在记忆相关的 subagent 运行中触发回忆。
 3. hook 获取记忆搜索管理器。如果管理器不可用（例如未配置 embeddings），则退出。
 4. 将用户 prompt 作为查询语句，对工作区所有记忆文件进行向量语义搜索。
-5. 如果搜索返回结果，将其格式化为 `<relevant-memories>` XML（标记为不可信数据以防止 prompt injection），通过 hook 的 `prependContext` 字段注入到用户 prompt 前部。
-6. LLM 最终看到原始用户问题和相关的历史上下文。
+5. 核心 search manager 按 `minScore` 阈值过滤结果（`openclaw.json` 中的 `memorySearch.query.minScore`），仅返回分数达标的记忆。
+6. 匹配的记忆被格式化为 `<relevant-memories>` XML（标记为不可信数据以防止 prompt injection），通过 hook 的 `prependContext` 字段注入到用户 prompt 前部。
+7. LLM 最终看到原始用户问题和相关的历史上下文。
 
 以下情况会跳过回忆：
 - prompt 长度短于 `autoRecallMinPromptLength`

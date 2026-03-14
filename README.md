@@ -83,9 +83,9 @@ flowchart LR
     C -- No --> D{Manager ready?}
     D -- No --> X
     D -- Yes --> E[Vector search]
-    E --> F{Results?}
-    F -- None --> X
-    F -- Found --> G[Inject memories]
+    E --> F{Score >= min?}
+    F -- No --> X
+    F -- Yes --> G[Inject memories]
     G --> H[LLM processes]
 ```
 
@@ -95,8 +95,9 @@ flowchart LR
 2. If the current trigger is `"memory"`, the hook exits to avoid recall during memory-related subagent runs.
 3. The hook obtains the memory search manager. If no manager is available (e.g. embeddings are not configured), the hook exits.
 4. The prompt is used as a query for semantic vector search across all workspace memory files.
-5. If the search returns results, they are formatted as `<relevant-memories>` XML (marked as untrusted data to prevent prompt injection) and prepended to the user prompt via the hook's `prependContext` field.
-6. The LLM then sees the original user question together with relevant historical context.
+5. Results are filtered by the core search manager's `minScore` threshold (`memorySearch.query.minScore` in `openclaw.json`). Only memories above this score are returned.
+6. Matching memories are formatted as `<relevant-memories>` XML (marked as untrusted data to prevent prompt injection) and prepended to the user prompt via the hook's `prependContext` field.
+7. The LLM then sees the original user question together with relevant historical context.
 
 The recall hook skips execution when:
 - The prompt is shorter than `autoRecallMinPromptLength`
