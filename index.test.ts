@@ -293,12 +293,15 @@ describe("extractMessagesOfRole", () => {
 // ─── Recall Hook ──────────────────────────────────────────────────
 
 describe("createRecallHook", () => {
-  function createMockApi(managerOverrides: Record<string, unknown> = {}) {
+  function createMockApi(managerOverrides: Record<string, unknown> = {}, ftsOnly = false) {
     const searchFn = vi
       .fn()
       .mockResolvedValue([
         { path: "memory/2024.md", snippet: "User likes dark mode", score: 0.85 },
       ]);
+    const probeFn = vi.fn().mockResolvedValue(
+      ftsOnly ? { ok: false, error: "No embedding provider available (FTS-only mode)" } : { ok: true },
+    );
     return {
       api: {
         config: {},
@@ -306,7 +309,7 @@ describe("createRecallHook", () => {
         runtime: {
           tools: {
             getMemorySearchManager: vi.fn().mockResolvedValue({
-              manager: { search: searchFn, ...managerOverrides },
+              manager: { search: searchFn, probeEmbeddingAvailability: probeFn, ...managerOverrides },
               error: undefined,
             }),
           },
@@ -314,6 +317,7 @@ describe("createRecallHook", () => {
         logger: { info: vi.fn(), warn: vi.fn(), error: vi.fn(), debug: vi.fn() },
       } as any,
       searchFn,
+      probeFn,
     };
   }
 
@@ -383,7 +387,7 @@ describe("createRecallHook", () => {
   it("skips when search returns empty results", async () => {
     const { api } = createMockApi();
     (api.runtime.tools.getMemorySearchManager as ReturnType<typeof vi.fn>).mockResolvedValue({
-      manager: { search: vi.fn().mockResolvedValue([]) },
+      manager: { search: vi.fn().mockResolvedValue([]), probeEmbeddingAvailability: vi.fn().mockResolvedValue({ ok: true }) },
     });
     const hook = createRecallHook(api, defaultCfg);
     const result = await hook({ prompt: "What is my name?", messages: [] }, { agentId: "main" });
@@ -410,7 +414,7 @@ describe("createRecallHook", () => {
   it("handles search throwing", async () => {
     const { api } = createMockApi();
     (api.runtime.tools.getMemorySearchManager as ReturnType<typeof vi.fn>).mockResolvedValue({
-      manager: { search: vi.fn().mockRejectedValue(new Error("search error")) },
+      manager: { search: vi.fn().mockRejectedValue(new Error("search error")), probeEmbeddingAvailability: vi.fn().mockResolvedValue({ ok: true }) },
     });
     const hook = createRecallHook(api, defaultCfg);
     const result = await hook({ prompt: "What is my name?", messages: [] }, { agentId: "main" });
@@ -425,6 +429,43 @@ describe("createRecallHook", () => {
     expect(api.runtime.tools.getMemorySearchManager).toHaveBeenCalledWith(
       expect.objectContaining({ agentId: "default" }),
     );
+  });
+
+  it("passes minScore to search in hybrid mode (embedding available)", async () => {
+    const { api, searchFn } = createMockApi({}, false);
+    const cfg = parseConfig({ autoRecall: true, autoRecallMinScore: 0.7 });
+    const hook = createRecallHook(api, cfg);
+    await hook({ prompt: "How do I set up dark mode?", messages: [] }, { agentId: "main" });
+    expect(searchFn).toHaveBeenCalledWith(
+      expect.any(String),
+      expect.objectContaining({ minScore: 0.7 }),
+    );
+  });
+
+  it("omits minScore in FTS-only mode (no embedding model)", async () => {
+    const { api, searchFn, probeFn } = createMockApi({}, true);
+    const cfg = parseConfig({ autoRecall: true, autoRecallMinScore: 0.7 });
+    const hook = createRecallHook(api, cfg);
+    await hook({ prompt: "How do I set up dark mode?", messages: [] }, { agentId: "main" });
+    expect(probeFn).toHaveBeenCalled();
+    expect(searchFn).toHaveBeenCalledWith(
+      expect.any(String),
+      expect.not.objectContaining({ minScore: expect.anything() }),
+    );
+    expect(api.logger.warn).toHaveBeenCalledWith(
+      expect.stringContaining("FTS-only mode"),
+    );
+  });
+
+  it("still returns results in FTS-only mode", async () => {
+    const { api } = createMockApi({}, true);
+    const hook = createRecallHook(api, defaultCfg);
+    const result = await hook(
+      { prompt: "How do I set up dark mode?", messages: [] },
+      { agentId: "main" },
+    );
+    expect(result).toBeDefined();
+    expect(result!.prependContext).toContain("dark mode");
   });
 });
 
