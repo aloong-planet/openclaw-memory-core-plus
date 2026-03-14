@@ -9,7 +9,7 @@
     "properties": {
       "autoRecall": {
         "type": "boolean",
-        "default": false,
+        "default": true,
         "description": "Automatically inject relevant memories into context before each agent turn"
       },
       "autoRecallMaxResults": {
@@ -17,14 +17,9 @@
         "default": 5,
         "description": "Maximum number of memories to inject per turn"
       },
-      "autoRecallMinScore": {
-        "type": "number",
-        "default": 0.7,
-        "description": "Minimum relevance score threshold for recalled memories (0-1)"
-      },
       "autoCapture": {
         "type": "boolean",
-        "default": false,
+        "default": true,
         "description": "Automatically capture important information from conversations to memory"
       },
       "autoCaptureMaxMessages": {

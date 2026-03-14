@@ -100,7 +100,7 @@ export function createCaptureHook(api: OpenClawPluginApi, cfg: MemoryCorePlusCon
     }
 
     if (ctx.trigger === "memory" || ctx.sessionKey?.includes(":memory-capture:")) {
-      api.logger.info("memory-core-plus: capture skipped (memory session)");
+      api.logger.info("memory-core-plus: capture skipped (inside memory-capture subagent, avoiding recursion)");
       return;
     }
 

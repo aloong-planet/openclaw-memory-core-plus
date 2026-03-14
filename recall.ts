@@ -1,6 +1,6 @@
 import type { OpenClawPluginApi } from "openclaw/plugin-sdk/memory-core-plus";
 import type { MemoryCorePlusConfig } from "./config.js";
-import { formatRelevantMemoriesContext } from "./safety.js";
+import { extractUserQuery, formatRelevantMemoriesContext } from "./safety.js";
 
 export function createRecallHook(api: OpenClawPluginApi, cfg: MemoryCorePlusConfig) {
   return async (
@@ -14,8 +14,8 @@ export function createRecallHook(api: OpenClawPluginApi, cfg: MemoryCorePlusConf
       return;
     }
 
-    if (ctx.trigger === "memory") {
-      api.logger.info("memory-core-plus: recall skipped (trigger=memory)");
+    if (ctx.trigger === "memory" || ctx.sessionKey?.includes(":memory-capture:")) {
+      api.logger.info("memory-core-plus: recall skipped (inside memory-capture subagent, no recall needed)");
       return;
     }
 
@@ -41,18 +41,25 @@ export function createRecallHook(api: OpenClawPluginApi, cfg: MemoryCorePlusConf
     }
 
     try {
-      const results = await manager.search(event.prompt, {
+      const searchQuery = extractUserQuery(event.prompt);
+      const searchStart = Date.now();
+      const results = await manager.search(searchQuery, {
         maxResults: cfg.autoRecallMaxResults,
-        minScore: cfg.autoRecallMinScore,
         sessionKey: ctx.sessionKey,
       });
+      const searchMs = Date.now() - searchStart;
 
       if (results.length === 0) {
-        api.logger.info("memory-core-plus: recall search returned 0 results");
+        api.logger.info(
+          `memory-core-plus: recall search returned 0 results (${searchMs}ms, query: "${truncate(searchQuery, 80)}")`,
+        );
         return;
       }
 
-      api.logger.info(`memory-core-plus: injecting ${results.length} memories into context`);
+      const summary = results.map((r) => `${r.path}(${(r.score * 100).toFixed(0)}%)`).join(", ");
+      api.logger.info(
+        `memory-core-plus: injecting ${results.length} memories into context (${searchMs}ms) [${summary}]`,
+      );
       return {
         prependContext: formatRelevantMemoriesContext(results),
       };
@@ -60,4 +67,9 @@ export function createRecallHook(api: OpenClawPluginApi, cfg: MemoryCorePlusConf
       api.logger.warn(`memory-core-plus: recall search failed: ${String(err)}`);
     }
   };
+}
+
+function truncate(text: string, maxLen: number): string {
+  if (text.length <= maxLen) return text;
+  return `${text.slice(0, maxLen)}…`;
 }

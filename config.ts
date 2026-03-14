@@ -1,18 +1,16 @@
 export type MemoryCorePlusConfig = {
   autoRecall: boolean;
   autoRecallMaxResults: number;
-  autoRecallMinScore: number;
   autoRecallMinPromptLength: number;
   autoCapture: boolean;
   autoCaptureMaxMessages: number;
 };
 
 const DEFAULT_CONFIG: MemoryCorePlusConfig = {
-  autoRecall: false,
+  autoRecall: true,
   autoRecallMaxResults: 5,
-  autoRecallMinScore: 0.7,
   autoRecallMinPromptLength: 5,
-  autoCapture: false,
+  autoCapture: true,
   autoCaptureMaxMessages: 10,
 };
 
@@ -22,32 +20,22 @@ function normalizePositiveInt(value: unknown, fallback: number): number {
   return int >= 1 ? int : fallback;
 }
 
-function normalizeScore(value: unknown, fallback: number): number {
-  if (typeof value !== "number" || !Number.isFinite(value)) return fallback;
-  if (value < 0 || value > 1) return fallback;
-  return value;
-}
-
 export function parseConfig(pluginConfig?: Record<string, unknown>): MemoryCorePlusConfig {
   if (!pluginConfig || typeof pluginConfig !== "object") {
     return { ...DEFAULT_CONFIG };
   }
 
   return {
-    autoRecall: pluginConfig.autoRecall === true,
+    autoRecall: pluginConfig.autoRecall !== false,
     autoRecallMaxResults: normalizePositiveInt(
       pluginConfig.autoRecallMaxResults,
       DEFAULT_CONFIG.autoRecallMaxResults,
-    ),
-    autoRecallMinScore: normalizeScore(
-      pluginConfig.autoRecallMinScore,
-      DEFAULT_CONFIG.autoRecallMinScore,
     ),
     autoRecallMinPromptLength: normalizePositiveInt(
       pluginConfig.autoRecallMinPromptLength,
       DEFAULT_CONFIG.autoRecallMinPromptLength,
     ),
-    autoCapture: pluginConfig.autoCapture === true,
+    autoCapture: pluginConfig.autoCapture !== false,
     autoCaptureMaxMessages: normalizePositiveInt(
       pluginConfig.autoCaptureMaxMessages,
       DEFAULT_CONFIG.autoCaptureMaxMessages,
@@ -83,11 +71,6 @@ export const memoryCoreConfigSchema = {
     autoRecallMaxResults: {
       label: "Max Recall Results",
       help: "Maximum number of memories to inject per turn",
-      advanced: true,
-    },
-    autoRecallMinScore: {
-      label: "Min Recall Score",
-      help: "Minimum relevance score threshold (0-1)",
       advanced: true,
     },
     autoCapture: {
