@@ -691,7 +691,7 @@ describe("createCaptureHook", () => {
 
 describe("plugin structure", () => {
   it("has correct id and kind", () => {
-    expect(plugin.id).toBe("openclaw-memory-core-plus");
+    expect(plugin.id).toBe("memory-core-plus");
     expect(plugin.kind).toBe("memory");
   });
 
@@ -710,7 +710,7 @@ describe("plugin structure", () => {
 describe("plugin.register", () => {
   function createMockApi(pluginConfig: Record<string, unknown> = {}) {
     return {
-      id: "openclaw-memory-core-plus",
+      id: "memory-core-plus",
       name: "Memory Core Plus",
       source: "test",
       config: {},
