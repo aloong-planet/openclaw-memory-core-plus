@@ -5,6 +5,7 @@ import plugin from "./index.js";
 import { createRecallHook } from "./recall.js";
 import {
   escapeMemoryForPrompt,
+  extractUserQuery,
   formatRelevantMemoriesContext,
   stripRecallMarkers,
   looksLikePromptInjection,
@@ -128,6 +129,76 @@ describe("stripRecallMarkers", () => {
     const input =
       "<relevant-memories>a</relevant-memories> gap <relevant-memories>b</relevant-memories>";
     expect(stripRecallMarkers(input)).toBe("gap");
+  });
+});
+
+describe("extractUserQuery", () => {
+  it("returns plain text unchanged", () => {
+    expect(extractUserQuery("What is my travel itinerary?")).toBe("What is my travel itinerary?");
+  });
+
+  it("strips <relevant-memories> blocks", () => {
+    const input =
+      "<relevant-memories>\n1. some old data\n</relevant-memories>\nWhat is my travel itinerary?";
+    expect(extractUserQuery(input)).toBe("What is my travel itinerary?");
+  });
+
+  it("strips System: event lines", () => {
+    const input = "System: exec failed with code 1\nWhat is my name?";
+    expect(extractUserQuery(input)).toBe("What is my name?");
+  });
+
+  it("strips Sender (untrusted metadata) with fenced JSON", () => {
+    const input = [
+      "Sender (untrusted metadata): ```json",
+      '{"userId":"u123","channel":"discord"}',
+      "```",
+      "What is my travel plan?",
+    ].join("\n");
+    expect(extractUserQuery(input)).toBe("What is my travel plan?");
+  });
+
+  it("strips Sender (untrusted metadata) with inline JSON", () => {
+    const input =
+      'Sender (untrusted metadata): {"userId":"u123","channel":"discord"}\nWhat is my travel plan?';
+    expect(extractUserQuery(input)).toBe("What is my travel plan?");
+  });
+
+  it("strips timestamp prefixes", () => {
+    const input = "[Sat 2026-03-14 16:19 GMT+8] What is my travel plan?";
+    expect(extractUserQuery(input)).toBe("What is my travel plan?");
+  });
+
+  it("strips OpenClaw runtime context blocks", () => {
+    const input =
+      "OpenClaw runtime context (internal): workspace=/home/user/.openclaw\nagentId=main\n\nWhat is my name?";
+    expect(extractUserQuery(input)).toBe("What is my name?");
+  });
+
+  it("strips all noise combined", () => {
+    const input = [
+      "<relevant-memories>",
+      "1. old memory (score: 40%)",
+      "</relevant-memories>",
+      "System: heartbeat OK",
+      "Sender (untrusted metadata): ```json",
+      '{"userId":"u123"}',
+      "```",
+      "[Fri 2026-03-14 15:00 GMT+8] What is my self-drive trip schedule?",
+    ].join("\n");
+    expect(extractUserQuery(input)).toBe("What is my self-drive trip schedule?");
+  });
+
+  it("collapses excessive newlines", () => {
+    const input = "Hello\n\n\n\n\nWorld";
+    expect(extractUserQuery(input)).toBe("Hello\n\nWorld");
+  });
+
+  it("falls back to original prompt if cleaning yields empty string", () => {
+    const input = "System: heartbeat";
+    const result = extractUserQuery(input);
+    // After stripping "System: ..." the result is empty, so fallback to original
+    expect(result).toBe(input);
   });
 });
 
@@ -353,7 +424,20 @@ describe("createRecallHook", () => {
       { agentId: "main", trigger: "memory" },
     );
     expect(result).toBeUndefined();
-    expect(api.logger.info).toHaveBeenCalledWith(expect.stringContaining("trigger=memory"));
+    expect(api.logger.info).toHaveBeenCalledWith(expect.stringContaining("recall skipped"));
+  });
+
+  it("skips when sessionKey contains ':memory-capture:'", async () => {
+    const { api } = createMockApi();
+    const hook = createRecallHook(api, defaultCfg);
+    const result = await hook(
+      { prompt: "What is my name?", messages: [] },
+      { agentId: "main", sessionKey: "agent:main:memory-capture:default" },
+    );
+    expect(result).toBeUndefined();
+    expect(api.logger.info).toHaveBeenCalledWith(
+      expect.stringContaining("inside memory-capture subagent"),
+    );
   });
 
   it("skips when manager is null", async () => {
@@ -419,6 +503,22 @@ describe("createRecallHook", () => {
     await hook({ prompt: "What is my name?", messages: [] }, {});
     expect(api.runtime.tools.getMemorySearchManager).toHaveBeenCalledWith(
       expect.objectContaining({ agentId: "default" }),
+    );
+  });
+
+  it("strips gateway noise from prompt before searching", async () => {
+    const { api, searchFn } = createMockApi();
+    const hook = createRecallHook(api, defaultCfg);
+    const noisyPrompt = [
+      "Sender (untrusted metadata): ```json",
+      '{"userId":"u123","channel":"discord"}',
+      "```",
+      "[Sat 2026-03-14 16:19 GMT+8] What is my travel itinerary?",
+    ].join("\n");
+    await hook({ prompt: noisyPrompt, messages: [] }, { agentId: "main" });
+    expect(searchFn).toHaveBeenCalledWith(
+      "What is my travel itinerary?",
+      expect.any(Object),
     );
   });
 
@@ -527,7 +627,7 @@ describe("createCaptureHook", () => {
       { agentId: "main", trigger: "memory" },
     );
     expect(api.runtime.subagent.run).not.toHaveBeenCalled();
-    expect(api.logger.info).toHaveBeenCalledWith(expect.stringContaining("memory session"));
+    expect(api.logger.info).toHaveBeenCalledWith(expect.stringContaining("inside memory-capture subagent"));
   });
 
   it("skips when sessionKey contains ':memory-capture:'", async () => {
@@ -539,7 +639,7 @@ describe("createCaptureHook", () => {
       { agentId: "main", sessionKey: "agent:main:memory-capture:default" },
     );
     expect(api.runtime.subagent.run).not.toHaveBeenCalled();
-    expect(api.logger.info).toHaveBeenCalledWith(expect.stringContaining("memory session"));
+    expect(api.logger.info).toHaveBeenCalledWith(expect.stringContaining("inside memory-capture subagent"));
   });
 
   it("handles subagent 'only available during a gateway request' gracefully", async () => {

@@ -77,6 +77,50 @@ export function extractMessageText(msg: unknown): string | null {
   return null;
 }
 
+/**
+ * Extract the pure user query from a gateway prompt for vector search.
+ *
+ * Gateway prompts contain noise that degrades embedding quality:
+ *   - `<relevant-memories>` blocks from prior recall injections
+ *   - `System: ...` event lines (exec failures, lifecycle events)
+ *   - `Sender (untrusted metadata):` + JSON block
+ *   - `OpenClaw runtime context (internal):` blocks
+ *   - Timestamp prefixes like `[Sat 2026-03-14 16:19 GMT+8]`
+ *
+ * Stripping this noise dramatically improves recall accuracy.
+ */
+export function extractUserQuery(prompt: string): string {
+  let cleaned = stripRecallMarkers(prompt);
+
+  // Remove "System: ..." single-line event entries
+  cleaned = cleaned.replace(/^System:.*$/gm, "");
+
+  // Remove sender metadata block with fenced JSON
+  cleaned = cleaned.replace(
+    /Sender\s*\(untrusted metadata\)\s*:\s*```json\n[\s\S]*?```/g,
+    "",
+  );
+  // Fallback: inline JSON without fences
+  cleaned = cleaned.replace(
+    /Sender\s*\(untrusted metadata\)\s*:\s*\{[\s\S]*?\}\s*/g,
+    "",
+  );
+
+  // Remove timestamp prefix e.g. "[Sat 2026-03-14 16:19 GMT+8] "
+  cleaned = cleaned.replace(/^\[.*?GMT[+-]\d+\]\s*/gm, "");
+
+  // Remove OpenClaw runtime context blocks
+  cleaned = cleaned.replace(
+    /OpenClaw runtime context \(internal\):[\s\S]*?(?=\n\n|\n?$)/g,
+    "",
+  );
+
+  // Collapse excessive whitespace
+  cleaned = cleaned.replace(/\n{3,}/g, "\n\n").trim();
+
+  return cleaned || prompt;
+}
+
 export function extractMessagesOfRole(
   messages: unknown[],
   roles: string[],
