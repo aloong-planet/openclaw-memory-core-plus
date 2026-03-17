@@ -1,6 +1,6 @@
 {
   "name": "memory-core-plus",
-  "version": "1.0.1",
+  "version": "1.0.2",
   "description": "Enhanced workspace memory with auto-recall and auto-capture for OpenClaw",
   "type": "module",
   "openclaw": {
