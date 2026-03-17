@@ -1,4 +1,4 @@
-# openclaw-memory-core-plus
+# memory-core-plus
 
 [English](./README.md) | [中文](./README.zh-CN.md)
 
@@ -6,7 +6,7 @@
 
 ## 概述
 
-`openclaw-memory-core-plus` 是一个 OpenClaw 插件，在内置的 `memory-core` 基础上增加了两个自动化 hook：
+`memory-core-plus` 是一个 OpenClaw 插件，在内置的 `memory-core` 基础上增加了两个自动化 hook：
 
 - **Auto-Recall（自动回忆）** -- 每次 LLM 处理前，对工作区记忆进行语义搜索，将相关记忆注入到 prompt 上下文中。
 - **Auto-Capture（自动捕获）** -- 每次 agent 运行结束后，从对话中提取持久化的事实、偏好和决策，写入记忆文件。
@@ -16,22 +16,31 @@
 ## 安装
 
 ```bash
-openclaw plugins install openclaw-memory-core-plus
+openclaw plugins install memory-core-plus
 ```
 
 ## 配置
 
-### 快速设置（命令行）
+### 快速设置
 
 ```bash
-# 启用插件并自动选择 memory slot
-# 自动回忆和自动捕获默认启用，无需额外配置
-openclaw plugins enable memory-core-plus
+openclaw plugins install memory-core-plus
+```
 
-# 关闭自动回忆（如有需要）
+这一条命令会完成以下操作：
+- 下载并安装插件到 `~/.openclaw/extensions/memory-core-plus/`
+- 启用插件（`plugins.entries.memory-core-plus.enabled = true`）
+- 设置 memory slot（`plugins.slots.memory = "memory-core-plus"`）
+- 禁用竞争的记忆插件（如内置的 `memory-core`）
+
+重启 gateway 以加载插件：
+```bash
+openclaw gateway restart
+```
+
+自动回忆和自动捕获默认启用。如需关闭：
+```bash
 openclaw config set plugins.entries.memory-core-plus.config.autoRecall false
-
-# 关闭自动捕获（如有需要）
 openclaw config set plugins.entries.memory-core-plus.config.autoCapture false
 ```
 
@@ -56,7 +65,7 @@ openclaw config set plugins.entries.memory-core-plus.config.autoCapture false
 }
 ```
 
-> **重要：** `plugins.slots.memory` 必须设置为 `"memory-core-plus"` 才能将本插件激活为记忆提供者。运行 `openclaw plugins enable memory-core-plus` 会自动完成此设置。请勿同时启用 `memory-core`，否则会注册重复的工具。
+> **重要：** `plugins.slots.memory` 必须设置为 `"memory-core-plus"` 才能将本插件激活为记忆提供者。运行 `openclaw plugins install memory-core-plus` 会自动完成 slot 分配和启用。`openclaw plugins enable memory-core-plus` 仅在之前执行过 `plugins disable` 后需要重新启用时使用。请勿同时启用 `memory-core`，否则会注册重复的工具。
 
 ### 配置参数
 
@@ -67,6 +76,20 @@ openclaw config set plugins.entries.memory-core-plus.config.autoCapture false
 | `autoRecallMinPromptLength` | `number` | `5` | 触发回忆的最短 prompt 长度（字符数） |
 | `autoCapture` | `boolean` | `true` | 启用自动捕获（每次 agent 运行结束后自动提取记忆） |
 | `autoCaptureMaxMessages` | `number` | `10` | 分析捕获的最大近期消息数 |
+
+## 卸载与回退到 memory-core
+
+如需移除本插件并恢复使用内置的 `memory-core`：
+
+```bash
+# 卸载 — 移除配置项、memory slot 和已安装的文件
+openclaw plugins uninstall memory-core-plus
+
+# 重启 gateway — memory-core 将自动作为默认的记忆提供者
+openclaw gateway restart
+```
+
+卸载后，gateway 会自动回退到内置的 `memory-core` 插件，无需额外配置。
 
 ## 工作原理
 
