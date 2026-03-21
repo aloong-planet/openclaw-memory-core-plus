@@ -19,36 +19,39 @@ export function createRecallHook(api: OpenClawPluginApi, cfg: MemoryCorePlusConf
       return;
     }
 
-    const agentId = ctx.agentId ?? "default";
-    let manager;
-    try {
-      const result = await api.runtime.tools.getMemorySearchManager({
-        cfg: api.config,
-        agentId,
-      });
-      manager = result.manager;
-      if (!manager) {
-        if (result.error) {
-          api.logger.warn(
-            `memory-core-plus: recall skipped, search manager unavailable: ${result.error}`,
-          );
-        }
-        return;
-      }
-    } catch (err) {
-      api.logger.warn(`memory-core-plus: recall init failed: ${String(err)}`);
+    const tool = api.runtime.tools.createMemorySearchTool({
+      config: api.config,
+      agentSessionKey: ctx.sessionKey,
+    });
+    if (!tool) {
+      api.logger.info("memory-core-plus: recall skipped, memory search unavailable");
       return;
     }
 
     try {
       const searchQuery = extractUserQuery(event.prompt);
       const searchStart = Date.now();
-      const results = await manager.search(searchQuery, {
+      const result = await tool.execute("recall-auto", {
+        query: searchQuery,
         maxResults: cfg.autoRecallMaxResults,
-        sessionKey: ctx.sessionKey,
       });
       const searchMs = Date.now() - searchStart;
+      const details = result.details as {
+        results?: Array<{ path: string; snippet: string; score: number }>;
+        disabled?: boolean;
+        error?: string;
+      };
 
+      if (details.disabled) {
+        api.logger.info("memory-core-plus: recall skipped, memory search disabled");
+        return;
+      }
+      if (details.error) {
+        api.logger.warn(`memory-core-plus: recall search error: ${details.error}`);
+        return;
+      }
+
+      const results = details.results ?? [];
       if (results.length === 0) {
         api.logger.info(
           `memory-core-plus: recall search returned 0 results (${searchMs}ms, query: "${truncate(searchQuery, 80)}")`,

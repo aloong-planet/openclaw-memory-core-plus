@@ -71,7 +71,7 @@ async function captureLLM(
   }
 
   const dateStr = formatDateStamp();
-  const sessionKey = `memory-capture:${ctx.agentId ?? "default"}`;
+  const sessionKey = `:memory-capture:${ctx.agentId ?? "default"}`;
 
   const captureStart = Date.now();
   try {

@@ -1,4 +1,4 @@
-# openclaw-memory-core-plus
+# memory-core-plus
 
 [English](./README.md) | [中文](./README.zh-CN.md)
 
@@ -6,7 +6,7 @@
 
 ## Overview
 
-`openclaw-memory-core-plus` is an OpenClaw plugin that extends the built-in `memory-core` with two automated hooks:
+`memory-core-plus` is an OpenClaw plugin that extends the built-in `memory-core` with two automated hooks:
 
 - **Auto-Recall** -- Before each LLM turn, semantically search workspace memory and inject relevant memories into the prompt context.
 - **Auto-Capture** -- After each agent run, extract durable facts, preferences, and decisions from the conversation and persist them to memory files.
@@ -16,22 +16,31 @@ Together they form a closed-loop memory system: information captured from past c
 ## Installation
 
 ```bash
-openclaw plugins install openclaw-memory-core-plus
+openclaw plugins install memory-core-plus
 ```
 
 ## Configuration
 
-### Quick Setup (CLI)
+### Quick Setup
 
 ```bash
-# Enable the plugin and auto-select memory slot
-# Auto-recall and auto-capture are both enabled by default — no extra config needed
-openclaw plugins enable memory-core-plus
+openclaw plugins install memory-core-plus
+```
 
-# Disable auto-recall (if needed)
+This single command does the following:
+- Downloads and installs the plugin to `~/.openclaw/extensions/memory-core-plus/`
+- Enables the plugin (`plugins.entries.memory-core-plus.enabled = true`)
+- Sets the memory slot (`plugins.slots.memory = "memory-core-plus"`)
+- Disables competing memory plugins (e.g. built-in `memory-core`)
+
+Restart the gateway to load the plugin:
+```bash
+openclaw gateway restart
+```
+
+Auto-recall and auto-capture are both enabled by default. To disable either:
+```bash
 openclaw config set plugins.entries.memory-core-plus.config.autoRecall false
-
-# Disable auto-capture (if needed)
 openclaw config set plugins.entries.memory-core-plus.config.autoCapture false
 ```
 
@@ -56,7 +65,7 @@ openclaw config set plugins.entries.memory-core-plus.config.autoCapture false
 }
 ```
 
-> **Important:** The `plugins.slots.memory` field must be set to `"memory-core-plus"` to activate this plugin as the memory provider. Running `openclaw plugins enable memory-core-plus` handles this automatically. Do not enable `memory-core` at the same time -- they would register duplicate tools.
+> **Important:** The `plugins.slots.memory` field must be set to `"memory-core-plus"` to activate this plugin as the memory provider. Running `openclaw plugins install memory-core-plus` handles slot assignment and enabling automatically. Use `openclaw plugins enable memory-core-plus` only to re-enable after a previous `plugins disable`. Do not enable `memory-core` at the same time -- they would register duplicate tools.
 
 ### Configuration Reference
 
@@ -67,6 +76,20 @@ openclaw config set plugins.entries.memory-core-plus.config.autoCapture false
 | `autoRecallMinPromptLength` | `number` | `5` | Minimum prompt length (chars) to trigger recall |
 | `autoCapture` | `boolean` | `true` | Enable automatic memory capture after each agent run |
 | `autoCaptureMaxMessages` | `number` | `10` | Maximum recent messages to analyze for capture |
+
+## Uninstall & Rollback to memory-core
+
+To remove this plugin and revert to the built-in `memory-core`:
+
+```bash
+# Uninstall — removes config entry, memory slot, and installed files
+openclaw plugins uninstall memory-core-plus
+
+# Restart gateway — memory-core will be used as the default memory provider
+openclaw gateway restart
+```
+
+After uninstalling, the gateway falls back to the built-in `memory-core` plugin automatically. No extra configuration is needed.
 
 ## How It Works
 
