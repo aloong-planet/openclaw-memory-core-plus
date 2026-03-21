@@ -359,27 +359,24 @@ describe("extractMessagesOfRole", () => {
 // ─── Recall Hook ──────────────────────────────────────────────────
 
 describe("createRecallHook", () => {
-  function createMockApi(managerOverrides: Record<string, unknown> = {}) {
-    const searchFn = vi
-      .fn()
-      .mockResolvedValue([
-        { path: "memory/2024.md", snippet: "User likes dark mode", score: 0.85 },
-      ]);
+  function createMockApi(detailsOverride?: Record<string, unknown>) {
+    const executeFn = vi.fn().mockResolvedValue({
+      details: detailsOverride ?? {
+        results: [{ path: "memory/2024.md", snippet: "User likes dark mode", score: 0.85 }],
+      },
+    });
+    const createMemorySearchTool = vi.fn().mockReturnValue({ execute: executeFn });
     return {
       api: {
         config: {},
         pluginConfig: {},
         runtime: {
-          tools: {
-            getMemorySearchManager: vi.fn().mockResolvedValue({
-              manager: { search: searchFn, ...managerOverrides },
-              error: undefined,
-            }),
-          },
+          tools: { createMemorySearchTool },
         },
         logger: { info: vi.fn(), warn: vi.fn(), error: vi.fn(), debug: vi.fn() },
       } as any,
-      searchFn,
+      executeFn,
+      createMemorySearchTool,
     };
   }
 
@@ -440,15 +437,12 @@ describe("createRecallHook", () => {
     );
   });
 
-  it("skips when manager is null", async () => {
+  it("skips when createMemorySearchTool returns null", async () => {
     const api = {
       config: {},
       runtime: {
         tools: {
-          getMemorySearchManager: vi.fn().mockResolvedValue({
-            manager: null,
-            error: "no embeddings",
-          }),
+          createMemorySearchTool: vi.fn().mockReturnValue(null),
         },
       },
       logger: { info: vi.fn(), warn: vi.fn(), error: vi.fn() },
@@ -456,58 +450,59 @@ describe("createRecallHook", () => {
     const hook = createRecallHook(api, defaultCfg);
     const result = await hook({ prompt: "What is my name?", messages: [] }, { agentId: "main" });
     expect(result).toBeUndefined();
-    expect(api.logger.warn).toHaveBeenCalled();
+    expect(api.logger.info).toHaveBeenCalledWith(
+      expect.stringContaining("memory search unavailable"),
+    );
   });
 
   it("skips when search returns empty results", async () => {
-    const { api } = createMockApi();
-    (api.runtime.tools.getMemorySearchManager as ReturnType<typeof vi.fn>).mockResolvedValue({
-      manager: { search: vi.fn().mockResolvedValue([]) },
-    });
+    const { api } = createMockApi({ results: [] });
     const hook = createRecallHook(api, defaultCfg);
     const result = await hook({ prompt: "What is my name?", messages: [] }, { agentId: "main" });
     expect(result).toBeUndefined();
     expect(api.logger.info).toHaveBeenCalledWith(expect.stringContaining("0 results"));
   });
 
-  it("handles getMemorySearchManager throwing", async () => {
-    const api = {
-      config: {},
-      runtime: {
-        tools: {
-          getMemorySearchManager: vi.fn().mockRejectedValue(new Error("boom")),
-        },
-      },
-      logger: { info: vi.fn(), warn: vi.fn(), error: vi.fn() },
-    } as any;
+  it("handles search returning disabled", async () => {
+    const { api } = createMockApi({ disabled: true });
+    const hook = createRecallHook(api, defaultCfg);
+    const result = await hook({ prompt: "What is my name?", messages: [] }, { agentId: "main" });
+    expect(result).toBeUndefined();
+    expect(api.logger.info).toHaveBeenCalledWith(
+      expect.stringContaining("memory search disabled"),
+    );
+  });
+
+  it("handles search returning error", async () => {
+    const { api } = createMockApi({ error: "no embeddings" });
+    const hook = createRecallHook(api, defaultCfg);
+    const result = await hook({ prompt: "What is my name?", messages: [] }, { agentId: "main" });
+    expect(result).toBeUndefined();
+    expect(api.logger.warn).toHaveBeenCalledWith(
+      expect.stringContaining("no embeddings"),
+    );
+  });
+
+  it("handles tool.execute throwing", async () => {
+    const { api, executeFn } = createMockApi();
+    executeFn.mockRejectedValue(new Error("search error"));
     const hook = createRecallHook(api, defaultCfg);
     const result = await hook({ prompt: "What is my name?", messages: [] }, { agentId: "main" });
     expect(result).toBeUndefined();
     expect(api.logger.warn).toHaveBeenCalled();
   });
 
-  it("handles search throwing", async () => {
-    const { api } = createMockApi();
-    (api.runtime.tools.getMemorySearchManager as ReturnType<typeof vi.fn>).mockResolvedValue({
-      manager: { search: vi.fn().mockRejectedValue(new Error("search error")) },
-    });
+  it("passes sessionKey to createMemorySearchTool", async () => {
+    const { api, createMemorySearchTool } = createMockApi();
     const hook = createRecallHook(api, defaultCfg);
-    const result = await hook({ prompt: "What is my name?", messages: [] }, { agentId: "main" });
-    expect(result).toBeUndefined();
-    expect(api.logger.warn).toHaveBeenCalled();
-  });
-
-  it("defaults agentId to 'default' when not provided", async () => {
-    const { api } = createMockApi();
-    const hook = createRecallHook(api, defaultCfg);
-    await hook({ prompt: "What is my name?", messages: [] }, {});
-    expect(api.runtime.tools.getMemorySearchManager).toHaveBeenCalledWith(
-      expect.objectContaining({ agentId: "default" }),
+    await hook({ prompt: "What is my name?", messages: [] }, { sessionKey: "test-session" });
+    expect(createMemorySearchTool).toHaveBeenCalledWith(
+      expect.objectContaining({ agentSessionKey: "test-session" }),
     );
   });
 
   it("strips gateway noise from prompt before searching", async () => {
-    const { api, searchFn } = createMockApi();
+    const { api, executeFn } = createMockApi();
     const hook = createRecallHook(api, defaultCfg);
     const noisyPrompt = [
       "Sender (untrusted metadata): ```json",
@@ -516,19 +511,19 @@ describe("createRecallHook", () => {
       "[Sat 2026-03-14 16:19 GMT+8] What is my travel itinerary?",
     ].join("\n");
     await hook({ prompt: noisyPrompt, messages: [] }, { agentId: "main" });
-    expect(searchFn).toHaveBeenCalledWith(
-      "What is my travel itinerary?",
-      expect.any(Object),
+    expect(executeFn).toHaveBeenCalledWith(
+      "recall-auto",
+      expect.objectContaining({ query: "What is my travel itinerary?" }),
     );
   });
 
-  it("does not pass minScore to manager.search", async () => {
-    const { api, searchFn } = createMockApi();
+  it("passes maxResults to tool.execute", async () => {
+    const { api, executeFn } = createMockApi();
     const hook = createRecallHook(api, defaultCfg);
     await hook({ prompt: "How do I set up dark mode?", messages: [] }, { agentId: "main" });
-    expect(searchFn).toHaveBeenCalledWith(
-      expect.any(String),
-      expect.not.objectContaining({ minScore: expect.anything() }),
+    expect(executeFn).toHaveBeenCalledWith(
+      "recall-auto",
+      expect.objectContaining({ maxResults: defaultCfg.autoRecallMaxResults }),
     );
   });
 });
